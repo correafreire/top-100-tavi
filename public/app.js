@@ -1,6 +1,6 @@
 ﻿const $app = document.getElementById('app');
 const S = { ws: null, pid: null, code: null, name: localStorage.getItem('name') || '', st: null, themes: [], mix: 0,
-  pick: { theme: 'mix', rounds: 10, seconds: 30 }, ready: [], reacts: {}, custom: [], found: [], round: null, results: null, final: null, offset: 0, tick: null };
+  pick: { theme: 'mix', rounds: 10, seconds: 30, custom: [] }, ready: [], reacts: {}, custom: [], found: [], round: null, results: null, final: null, offset: 0, tick: null };
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const toast = (m) => { const t = document.getElementById('toast'); t.textContent = m; t.className = 'show'; setTimeout(() => (t.className = ''), 3000); };
 const isHost = () => S.st && S.st.hostId === S.pid;
@@ -56,42 +56,42 @@ async function loadThemes() {
   S.themes = r.themes; S.mix = r.mix;
 }
 
-function home() {
-  stopTick(); S.st = null;
+function readName() { const el = document.getElementById('name'); if (el) { S.name = el.value.trim(); localStorage.setItem('name', S.name); } return S.name; }
+
+function home() { createView(); }
+
+async function createView() {
+  readName(); stopTick(); S.st = null;
+  if (!S.themes.length) { try { await loadThemes(); } catch { S.themes = []; } }
+  const themeBtns = [{ id: 'mix', emoji: '🎲', name: 'Misto (todos os temas)', available: S.mix }, ...S.themes]
+    .map((t) => `<button class="theme ${S.pick.theme === t.id ? 'sel' : ''}" data-t="${t.id}">${t.emoji} ${esc(t.name)}<small>${t.available} perguntas inéditas</small></button>`).join('');
   $app.innerHTML = `<div class="card"><h2>Bem-vindo!</h2>
-    <p class="muted">Cada rodada traz um TOP 100. No tempo da rodada, escreva um item da lista — quanto mais baixo no ranking, mais pontos você ganha (posição 90 = 90 pts, posição 1 = 1 pt).</p>
+    <p class="muted">Cada rodada traz um TOP 100. Escreva um item da lista no tempo da rodada — quanto mais baixo no ranking, mais pontos (posição 90 = 90 pts, posição 1 = 1 pt).</p>
     <input id="name" maxlength="16" placeholder="Seu nome" value="${esc(S.name)}">
-    <div class="row" style="margin-top:12px"><button class="go" id="mk">Criar sala</button></div>
+    <h3>Tempo por rodada</h3><div class="chips">${[10, 15, 20, 30].map((n) => `<button class="chip ${S.pick.seconds === n ? 'sel' : ''}" data-s="${n}">${n}s</button>`).join('')}</div>
+    <h3>Rodadas</h3><div class="chips">${[10, 20, 30, 40, 50].map((n) => `<button class="chip ${S.pick.rounds === n ? 'sel' : ''}" data-r="${n}">${n}</button>`).join('')}</div>
+    <h3>Tema</h3><div class="grid">${themeBtns}</div>
+    <h3>🔎 Ou busque rankings na internet (Wikipédia)</h3>
+    <div class="row"><input id="q" placeholder="Ex.: filmes de maior bilheteria…"><button id="qb" style="flex:none">Buscar</button></div>
+    <div id="found"></div>
+    ${S.pick.custom.length ? `<p class="ok">Personalizado (${S.pick.custom.length} rodadas): ${S.pick.custom.map((c, i) => `<button class="chip sel" data-rm="${i}">${esc(c.title)} ✕</button>`).join(' ')} <button class="chip" id="clr">limpar</button></p>` : ''}
+    <div class="row" style="margin-top:18px"><button class="go" id="mk">Criar sala</button></div>
     <h3>ou entre em uma sala</h3>
     <div class="row"><input id="cd" maxlength="4" placeholder="CÓDIGO" style="text-transform:uppercase"><button id="jn">Entrar</button></div></div>`;
-  const nm = () => { S.name = document.getElementById('name').value.trim(); localStorage.setItem('name', S.name); return S.name; };
-  document.getElementById('mk').onclick = () => nm() ? createView() : toast('Digite seu nome.');
+  $app.querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => { S.pick.theme = b.dataset.t; S.pick.custom = []; createView(); }));
+  $app.querySelectorAll('[data-r]').forEach((b) => (b.onclick = () => { S.pick.rounds = +b.dataset.r; createView(); }));
+  $app.querySelectorAll('[data-s]').forEach((b) => (b.onclick = () => { S.pick.seconds = +b.dataset.s; createView(); }));
+  searchUi();
+  document.getElementById('mk').onclick = () => {
+    if (!readName()) return toast('Digite seu nome.');
+    const p = S.pick, base = { type: 'create', name: S.name, rounds: p.rounds, seconds: p.seconds };
+    send(p.custom.length ? { ...base, theme: 'custom', custom: p.custom } : { ...base, theme: p.theme });
+  };
   document.getElementById('jn').onclick = () => {
-    if (!nm()) return toast('Digite seu nome.');
+    if (!readName()) return toast('Digite seu nome.');
     send({ type: 'join', code: document.getElementById('cd').value, name: S.name });
   };
 }
-
-async function createView() {
-  await loadThemes();
-  const themeBtns = [{ id: 'mix', emoji: '🎲', name: 'Misto (todos os temas)', available: S.mix }, ...S.themes]
-    .map((t) => `<button class="theme ${S.pick.theme === t.id ? 'sel' : ''}" data-t="${t.id}">${t.emoji} ${esc(t.name)}<small>${t.available} perguntas inéditas</small></button>`).join('');
-  $app.innerHTML = `<div class="card"><h2>Nova sala</h2><h3>Tema</h3><div class="grid">${themeBtns}</div>
-    <h3>🔎 Ou busque rankings na internet (Wikipédia, em tempo real)</h3>
-    <div class="row"><input id="q" placeholder="Ex.: filmes de maior bilheteria, jogadores com mais gols…"><button id="qb" style="flex:none">Buscar</button></div>
-    <div id="found"></div>
-    ${S.pick.custom.length ? `<p class="ok">Tema personalizado (${S.pick.custom.length} rankings = ${S.pick.custom.length} rodadas): ${S.pick.custom.map((c, i) => `<button class="chip sel" data-rm="${i}">${esc(c.title)} ✕</button>`).join(' ')} <button class="chip" id="clr">limpar</button></p>` : ''}
-    <h3>Rodadas</h3><div class="chips">${[10, 20, 30, 40, 50].map((n) => `<button class="chip ${S.pick.rounds === n ? 'sel' : ''}" data-r="${n}">${n}</button>`).join('')}</div>
-    <h3>Tempo por rodada</h3><div class="chips">${[10, 15, 20, 30].map((n) => `<button class="chip ${S.pick.seconds === n ? 'sel' : ''}" data-s="${n}">${n}s</button>`).join('')}</div>
-    <div class="row" style="margin-top:18px"><button class="sec" id="bk">Voltar</button><button class="go" id="ok">Criar sala</button></div></div>`;
-  $app.querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => { S.pick.theme = b.dataset.t; createView(); }));
-  $app.querySelectorAll('[data-r]').forEach((b) => (b.onclick = () => { S.pick.rounds = +b.dataset.r; createView(); }));
-  $app.querySelectorAll('[data-s]').forEach((b) => (b.onclick = () => { S.pick.seconds = +b.dataset.s; createView(); }));
-  document.getElementById('bk').onclick = home;
-  searchUi();
-  document.getElementById('ok').onclick = () => send(S.pick.custom.length ? { type: 'create', name: S.name, theme: 'custom', custom: S.pick.custom, rounds: S.pick.rounds, seconds: S.pick.seconds } : { type: 'create', name: S.name, theme: S.pick.theme, rounds: S.pick.rounds, seconds: S.pick.seconds });
-}
-
 function searchUi() {
   const box = document.getElementById('found');
   const draw = () => {

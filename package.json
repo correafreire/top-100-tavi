@@ -14,5 +14,8 @@
   "dependencies": {
     "cheerio": "^1.2.0",
     "ws": "^8.22.0"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

@@ -63,14 +63,14 @@ function home() { createView(); }
 async function createView() {
   readName(); stopTick(); S.st = null;
   if (!S.themes.length) { try { await loadThemes(); } catch { S.themes = []; } }
-  const themeBtns = [{ id: 'mix', emoji: '🎲', name: 'Misto (todos os temas)', available: S.mix }, ...S.themes]
-    .map((t) => `<button class="theme ${S.pick.theme === t.id ? 'sel' : ''}" data-t="${t.id}">${t.emoji} ${esc(t.name)}<small>${t.available} perguntas inéditas</small></button>`).join('');
+  const themeOpts = [{ id: 'mix', emoji: '🎲', name: 'Todas as categorias', available: S.mix }, ...S.themes]
+    .map((t) => `<option value="${t.id}" ${S.pick.theme === t.id ? 'selected' : ''}>${t.emoji} ${esc(t.name)} (${t.available})</option>`).join('');
   $app.innerHTML = `<div class="card"><h2>Bem-vindo!</h2>
     <p class="muted">Cada rodada traz um TOP 100. Escreva um item da lista no tempo da rodada — quanto mais baixo no ranking, mais pontos (posição 90 = 90 pts, posição 1 = 1 pt).</p>
     <input id="name" maxlength="16" placeholder="Seu nome" value="${esc(S.name)}">
     <h3>Tempo por rodada</h3><div class="chips">${[10, 15, 20, 30].map((n) => `<button class="chip ${S.pick.seconds === n ? 'sel' : ''}" data-s="${n}">${n}s</button>`).join('')}</div>
     <h3>Rodadas</h3><div class="chips">${[10, 20, 30, 40, 50].map((n) => `<button class="chip ${S.pick.rounds === n ? 'sel' : ''}" data-r="${n}">${n}</button>`).join('')}</div>
-    <h3>Tema</h3><div class="grid">${themeBtns}</div>
+    <h3>Categoria da partida</h3><select id="theme">${themeOpts}</select>
     <h3>🔎 Ou busque rankings na internet (Wikipédia)</h3>
     <div class="row"><input id="q" placeholder="Ex.: filmes de maior bilheteria…"><button id="qb" style="flex:none">Buscar</button></div>
     <div id="found"></div>
@@ -78,7 +78,7 @@ async function createView() {
     <div class="row" style="margin-top:18px"><button class="go" id="mk">Criar sala</button></div>
     <h3>ou entre em uma sala</h3>
     <div class="row"><input id="cd" maxlength="4" placeholder="CÓDIGO" style="text-transform:uppercase"><button id="jn">Entrar</button></div></div>`;
-  $app.querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => { S.pick.theme = b.dataset.t; S.pick.custom = []; createView(); }));
+  document.getElementById('theme').onchange = (e) => { S.pick.theme = e.target.value; S.pick.custom = []; createView(); };
   $app.querySelectorAll('[data-r]').forEach((b) => (b.onclick = () => { S.pick.rounds = +b.dataset.r; createView(); }));
   $app.querySelectorAll('[data-s]').forEach((b) => (b.onclick = () => { S.pick.seconds = +b.dataset.s; createView(); }));
   searchUi();

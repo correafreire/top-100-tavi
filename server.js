@@ -1,4 +1,4 @@
-﻿const http = require('http');
+const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -12,10 +12,16 @@ const PUBLIC = path.join(__dirname, 'public');
 const USED_FILE = path.join(__dirname, 'data', 'used.json');
 
 const THEMES = [
-  ['filmes', '🎬', 'Filmes e Séries'], ['musica', '🎵', 'Música'], ['nostalgia', '📼', 'Nostalgia'],
-  ['internet', '🌐', 'Internet e Redes Sociais'], ['games', '🎮', 'Games'], ['comida', '🍕', 'Comida'],
-  ['mundo', '🌎', 'Mundo e Viagens'], ['brasil', '🇧🇷', 'Brasil'], ['carros', '🚗', 'Carros e Tecnologia'],
-  ['esportes', '⚽', 'Esportes'], ['diferentes', '😂', 'Temas Diferentes'],].map(([id, emoji, name]) => ({ id, emoji, name }));
+  ['mundo', '🌎', 'Mundo & Viagens'], ['brasil', '🇧🇷', 'Brasil'], ['filmes', '🎬', 'Filmes'], ['series', '📺', 'Séries'],
+  ['musica', '🎵', 'Música'], ['esportes', '⚽', 'Esportes'], ['comida', '🍔', 'Comidas & Bebidas'], ['carros', '🚗', 'Carros & Motos'],
+  ['games', '🎮', 'Games'], ['tecnologia', '💻', 'Tecnologia'], ['internet', '🌐', 'Internet'], ['redes', '📱', 'Redes Sociais'],
+  ['nostalgia80', '📼', 'Nostalgia anos 80/90/2000'], ['infancia', '🧸', 'Nostalgia da Infância'], ['nostinternet', '🖥️', 'Nostalgia da Internet'],
+  ['nostalgiatv', '📺', 'Nostalgia da TV'], ['nostalgiatec', '💿', 'Nostalgia Tecnológica'], ['humor', '😂', 'Humor & Cultura Pop'],
+  ['historia', '🧠', 'História & Curiosidades'], ['animais', '🐅', 'Animais & Natureza'], ['personagens', '🎭', 'Personagens'],
+  ['economia', '💰', 'Economia'], ['streams', '▶️', 'Streams · Spotify, Netflix e outras'],
+].map(([id, emoji, name]) => ({ id, emoji, name }));
+// temas antigos das listas já existentes
+const ALIAS = { nostalgia: 'nostalgia80', diferentes: 'historia' };
 
 // ---------- normalização e correspondência ----------
 const norm = (s) => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -58,7 +64,8 @@ function matchAnswer(list, text) {
 function loadLists() {
   const lists = [];
   for (const f of fs.readdirSync(path.join(__dirname, 'data')).filter((f) => f.endsWith('.js'))) {
-    for (const [theme, title, raw] of require(path.join(__dirname, 'data', f))) {
+    for (const [theme0, title, raw] of require(path.join(__dirname, 'data', f))) {
+      const theme = ALIAS[theme0] || theme0;
       const seen = new Set();
       const items = [];
       for (const it of raw.split('|').map((s) => s.trim()).filter(Boolean)) {
@@ -73,7 +80,7 @@ function loadLists() {
   return lists;
 }
 const LISTS = loadLists();
-const CATALOG = require('./data/fontes').map(([theme, title, kind, a, b]) => ({ id: `w:${theme}:${norm(title)}`, theme, title, remote: true, spec: kind === 'sparql' ? { kind, key: a } : { kind, lang: a, page: b } }));
+const CATALOG = require('./data/fontes').map(([theme0, title, kind, a, b]) => { const theme = ALIAS[theme0] || theme0; return { id: `w:${theme}:${norm(title)}`, theme, title, remote: true, spec: kind === 'sparql' ? { kind, key: a } : { kind, lang: a, page: b } }; });
 const failed = new Set();
 
 let used = new Set();
